@@ -1,0 +1,232 @@
+---
+title: CBMF 4761 Homework 1
+author: Alex Ying
+output: pdf_document
+---
+
+I discussed the problems with Jason Mohabir.
+
+# Problem 1
+\noindent a. Supposing the reference genome is a string of length $R$, saving the indices would require saving $R$ integers of size $log(R)$. This gives us a space complexity of $O(R log R)$, which is often undesirable when working with reference genomes billions of base pairs in length, and considering that the transformed genome can be stored in only $O(R)$ space.
+
+\noindent b. 
+
+\noindent i) Assume that only a few indices are saved, and that the searched read matches a substring of the reference that ends at one such index. One approach to finding the index of the start position is by saving all suffix array indices at the beginning of the search in an array, called $S$, with $-1$ if no suffix array index has been saved for that character, and save a second boolean array, initialized with all true values. As each character is queried in the backward search, if the next character does not match, the corresponding boolean value can be switched to false. By corresponding, what is meant is that at the beginning of a character query, the number of true values should be equal to the number of positions of the transformed string that are being compared to the character. If the character in the first of these positions does not match the next character of the read, the first true value in the boolean array is changed to false. At the end, only one true value should remain, and the index of this true value corresponds with the index in $S$ where the suffix array index can be found. If the read is length $l$ and the saved index is $n$, the starting index of the substring is $n - l + 1$.
+
+\noindent ii) This process can be extended to find the starting index of the substring in cases where the read spans a saved index. Here, an array, $S$ is again constructed in the same manner. However, instead of a boolean array, an integer array, $P$ is constructed with all values initialized as 1. As each character is queried, if the next character does not match, the corresponding value of $P$ is changed to a $-1$. However, if the next character does match, and a suffix array index was found, the corresponding value of $S$ is updated to this index, and the corresponding value of $P$ is updated to be the current position along the read (e.g. if it is the third character being queried, the corresponding value of $P$ is updated to be 3). At the end, only one positive value should remain in $P$, and the index of the substring is found by adding the value from $P$ and the value from $S$ and subtracting the length of the read from this sum.
+
+\newpage
+
+\noindent c. 
+
+\noindent i) Saving every k-th index would require $O(\frac{R}{k} log(R/k)) \approx O(\frac{R}{k} log(R))$. 
+
+\noindent ii) Based on the results of (b), this will make it possible to match substrings of length $l = k$, under the assumption that the saved indices are perfectly spaced. This is because if the indices are perfectly spaced, the read will always span a saved index. However, another approach may be used to index a read regardless of its length and regrardless of the value of $k$. This is done by continuing to search backward using the occurrence table until finding a character with an associated saved index. For example, suppose the reference sequence is ATAGGCA, which has the following B-W transformed string, occurence table, and sparsified suffix array:
+
+```{r eval=FALSE}
+#Burrows Wheeler Transformed String
+  0 1 2 3 4 5 6
+  C T A G G A A
+
+#Occurrence Table
+A 0 0 1 1 1 2 3
+C 1 1 1 1 1 1 1
+G 0 0 0 1 2 2 2
+T 0 1 1 1 1 1 1
+
+#Suffix Array:
+  - - 0 - - 3 -
+```
+Suppose the read was GGC, which does not span a saved array. However, the character before GGC can be easily found to be the second A. The last character searched in the read (the second G) is known to be the second G in the sorted string by the occurrence table, since there are 3 A's and 1 C, this gives the position of the first G in the sorted string as $A + C + G - 1 = 4 + 2 - 1 = 5$, which corresponds with A in the B-W transformed string. Since the suffix array happens to have a saved index here of 3, the index of GGC is known to be 4, as the extended search only happened once (if the extended search occurs $n$ times, the index of the read would be the saved index plus $n$). Therefore, the only consideration for $k$ with regards to $l$ is the runtime and space complexity of storing the suffix array, which will be discussed further in (iii).
+
+\noindent iii) Assuming the naive case (no extended searching), when $k = l$, and indices are evenly distributed, a read will always span a saved index and be able to be mapped. Likewise, if indices are not evenly distributed, the probability that a read spans a saved index and can be mapped is $1 - ((k - 1)/k)^l$, since each read has a $1 - 1/k$ chance of not having a saved index. The desired chance of 0.999 is determined by $k = 1/(1 - 0.001^{1/l})$. However, using extended searching, any read can be mapped, but only saving 1 array index would require O(R) run time for each read. This can be improved by letting $k$ be a function of $R$, say, $k = log(R)$, which requires $O(\frac{R}{log(R)}log(\frac{R}{log(R)}) = O(R - log(log(R)))$ space (when saving the suffix arrays as multiples of log(R)), and this is essentially linear, a large improvement over $O(Rlog(R))$. Because the expected gap between saved indices would be about k, the worst case extended search would be $O(log(R))$.
+
+\newpage
+
+# Problem 2
+\noindent a. A Phread score of 19 gives us a $10^{-1.9} = 0.0126$ chance of error. Assume that a typical mammalian genome is about 3 billion base pairs in length. An expected value of 1 error in 3 billion bases therefore requires a $1 / 3E{9} = 3.33E{-10}$ chance of error. Since each read has a $0.0126$ chance of error, the number of agreeing reads required to have an overall chance of error of $3.33E{-10}$ is $log(3.33E{-10}) / log(0.0126) = 4.989$. Therefore, 5 reads that agree per base would result in one base expected to be incorrect out of 3 billion.
+
+
+\noindent b. A Phread score of 22 gives us a $10^{-2.2} = 6.31E{-3}$ chance of error. With $n$ reads showing the same, non-reference allele, let the null hypothesis, $H_0$, be that all $n$ reads are errors. Let the alternative hypothesis, $H_1$, be that all $n$ reads are heterozygous variants. A heterozygous variant would have about a $0.5$ chance of occuring (disregarding the probability of incorrect reads since it is essentially trivial compared to the probability of a read being the heterozygous variant). The null hypothesis is rejected when $n \geq k$, giving the following calculations:
+\[
+\alpha = P(n \geq k | H_0)
+\]
+\[
+= \sum_{i = k}^{22}{{20 \choose i}(0.00631)^i(1 - 0.00631)^{20 - i}}_{}
+\]
+
+The null hypothesis is accepted when $n < k$, giving:
+\[
+\beta = P(n < k | H_1)
+\]
+\[
+= \sum_{i = 0}^{k - 1}{{20 \choose i}(0.5)^i(1 - 0.5)^{20 - i}}_{}
+\]
+
+This gives a total error probability of:
+\[
+\alpha + \beta =
+\]
+\[
+= \sum_{i = k}^{20}{{20 \choose i}(0.00631)^i(1 - 0.00631)^{20 - i}}_{} + \sum_{i = 0}^{k - 1}{{20 \choose i}(0.5)^i(1 - 0.5)^{20 - i}}_{}
+\]
+
+which can be observed to minimize for the minimum value of k such that
+\[
+(0.00631)^k(1 - 0.00631)^{20 - k} < (0.5)^k(1 - 0.5)^{20 - k}
+\]
+which gives $k = 3$
+
+This also could be simply calculated in R with:
+```{r}
+k <- c(0:20)
+total_error <- function(n) {
+  alpha = pbinom(20, 20, 0.00631) - pbinom(n - 1, 20, 0.00631)
+  beta = pbinom(n - 1, 20, 0.5)
+  return(alpha + beta)
+}
+errors = total_error(k)
+sprintf("k = %i", k[errors == min(errors)])
+```
+
+\newpage
+
+\noindent c. Given 3000 heterozygous sites out of 3 billion sites, the prior probability of having a true variant is $1E{-6}$. This gives a prior probability for being homozygous ($P(TT)$) of $0.999999$, and a prior prbability of being heterozygous for a specific base ($P(GT)$ and $P(CT)$) of $\frac{1E{-6}}{3} = 3.33E{-7}$ (assuming each base is equally likely).
+
+The proability that the observations would be seen assuming that the genome is truly homozygous TT is found by finding the probability that all the T reads are correct, and all the G and C reads are incorrect.
+\[
+P(Obs|TT)P(TT) = (\prod_{n = 10}^{20}1-10^{-n/10})_{}10^{-0.7 - 0.9 - 1.1 - 1.3 - 3.0} \times 0.999999
+\]
+\[
+=6.302E{-8}
+\]
+
+The proability that the observations would be seen assuming that the genome is truly heterozygous GT is found by finding the probability that all the G and T reads are correct, and the C read is incorrect. This is multiplied by the probability that the correct reads would be observed given a binomial distribution.
+\[
+P(Obs|GT)P(GT) = 11 \sim Binom(15, 0.5) \times (\prod_{n = 10}^{20}1-10^{-n/10})_{}(\prod_{n = 3}^{6}1-10^{-(2n+1)/10})_{}10^{-3} \times 3.33E{-7}
+\]
+\[
+= 5.349E{-12}
+\]
+
+The proability that the observations would be seen assuming that the genome is truly heterozygous CT is found by finding the probability that all the C and T reads are correct, and the G reads are incorrect. This is multiplied by the probability that the correct reads would be observed given a binomial distribution.
+\[
+P(Obs|CT)P(CT) = 11 \sim Binom(12, 0.5) \times (\prod_{n = 10}^{20}1-10^{-n/10})_{}(1-10^{-3})10^{-0.7 - 0.9 - 1.1 - 1.3} \times 3.33E{-7}
+\]
+\[
+= 6.142E{-14}
+\]
+
+Calculating the posterior probabilities gives:
+
+\[
+P(TT|Obs) = \frac{P(Obs|TT)}{P(Obs)}P(TT)
+\]
+\smallskip
+\[
+= \frac{P(Obs|TT)}{P(Obs|TT)P(TT) + P(Obs|GT)P(GT) + P(Obs|CT)P(CT)}P(TT)
+\]
+\smallskip
+\[
+= \frac{6.302E{-8}}{6.301E{-8} + 5.349E{-12} + 6.142E{-14}}
+\]
+\smallskip
+\[
+= 0.9999
+\]
+\smallskip
+\[
+P(GT|Obs) = \frac{P(Obs|GT)}{P(Obs)}P(GT)
+\]
+\smallskip
+\[
+= \frac{P(Obs|GT)}{P(Obs|TT)P(TT) + P(Obs|GT)P(GT) + P(Obs|CT)P(CT)}P(GT)
+\]
+\smallskip
+\[
+= \frac{5.349E{-12}}{6.302E{-8} + 5.349E{-12} + 6.142E{-14}}
+\]
+\smallskip
+\[
+= 8.488E{-5}
+\]
+
+\[
+P(CT|Obs) = \frac{P(Obs|CT)}{P(Obs)}P(CT)
+\]
+\smallskip
+\[
+= \frac{P(Obs|CT)}{P(Obs|TT)P(TT) + P(Obs|GT)P(GT) + P(Obs|CT)P(CT)}P(CT)
+\]
+\smallskip
+\[
+= \frac{6.142E{-14}}{6.302E{-8} + 5.349E{-12} + 6.142E{-14}}
+\]
+\smallskip
+\[
+= 9.747E{-7}
+\]
+
+\noindent d. Assuming that 20\% of genomes will have a G at the site instead of the reference T, this gives prior probabilities of $0.2$, $0.8$, and $0$ for G, T, and C, respectively. 
+
+The same logic as in (c) is applied:
+\[
+P(Obs|TT)P(TT) = (\prod_{n = 10}^{20}1-10^{-n/10})_{})10^{-0.7 - 0.9 - 1.1 - 1.3 - 3.0} \times 0.8
+\]
+\[
+= 5.041E{-8}
+\]
+
+\[
+P(Obs|GT)P(GT) = 11 \sim Binom(15, 0.5) \times (\prod_{n = 10}^{20}1-10^{-n/10})_{}(\prod_{n = 3}^{6}1-10^{-(2n+1)/10})_{}10^{-3} \times 0.2
+\]
+\[
+= 3.212E{-6}
+\]
+
+\[
+P(Obs|CT)P(CT) = 0
+\]
+
+Calculating the posterior probabilities gives:
+\[
+P(TT|Obs) = \frac{P(Obs|TT)}{P(Obs)}P(TT)
+\]
+\smallskip
+\[
+= \frac{P(Obs|TT)}{P(Obs|TT)P(TT) + P(Obs|GT)P(GT)}P(TT)
+\]
+\smallskip
+\[
+= \frac{5.041E{-8}}{5.041E{-8} + 8.331E{-6}}
+\]
+\smallskip
+\[
+=0.01545
+\]
+
+\[
+P(GT|Obs) = \frac{P(Obs|GT)}{P(Obs)}P(T)
+\]
+\smallskip
+\[
+= \frac{P(Obs|GT)}{P(Obs|TT)P(TT) + P(Obs|GT)P(GT)}P(GT)
+\]
+\smallskip
+\[
+= \frac{8.331E{-6}}{5.041E{-8} + 8.331E{-6}}
+\]
+\smallskip
+\[
+= 0.9845
+\]
+
+
+# Problem 3
+\noindent a. For events $S_{1}, ..., S_{3k-2}$, 2 events, $S_x$ and $S_y$, where $x > y$, are independent if $x > y + 2$. This can be shown by the relation $P(S_x \cap S_y) = P(S_x) P(S_y)$. For cases where $x \leq y + 2$, $P(S_x \cap S_y) = 0$, as stop codon sequences cannot overlap (e.g. no such base X exists such that TAGX, TGAX, or TAAX forms a valid stop codon starting at the second base). Since $P(S_i) = 0.3 \times 0.3 \times 0.2 + 0.3 \times 0.2 \times 0.3 + 0.3 \times 0.3 \times 0.3 = 0.063$, $P(S_x)P(S_y) = 0.063 \times 0.063 = 0.003969$, $S_x$ and $S_y$ are independent when $x \leq y + 2$. However, when $x > y + 2$, $P(S_x \cap S_y) = 0.063 * 1 * 0.063 = 0.003969 = P(S_x) P(S_y)$, as the bases between the 2 events are arbitrary, and the joint probability of the two events is essentially $P(S_x)$ multiplied by $P(S_y)$ multiplied by 1, which represents the bases between the events. This shows that so long as the 2 events do not share 1 or 2 bases, they are independent.
+
+\noindent b. The chance of this sequence being consistent with coding requires that the first three bases form a start codon, the last three bases form a stop codon, and no stop codons be formed in between. The probability of a start codon is $0.3 \times 0.3 \times 0.2 = 0.018$. The probability of any stop codong was found to be $0.063$ in (a). This gives the probability of a sequence of $k$ codons being a valid coding sequence as $0.018 \times 0.063 \times (1 - 0.063)^{k - 2} = 0.001134 \times 0.937^{k - 2}$.
+
+\noindent c. You would expect the distribution of codons to be pairwise independent and uniformly random. This would give a geometric distribution for the probability of C codons before the first stop codon, for different values of C. This can be expressed as $P(C) = 0.063(1 - 0.063)^{C}$
+
+\noindent d. The null assumption in (a) is that each codon and each base are independent of one another. Since $z_1z_2z_3$ is given to be a start codon, the probability that C codons are followed by a stop codon is $0.063 \times 0.937^C = 0.001$. The value of C is therefore found to be 64.
