@@ -1,10 +1,4 @@
-from enum import Enum
 import numpy as np
-
-class Last(Enum):
-    MATCH = 0
-    DEL = 1
-    INS = 2
 
 def init_cost(gap_len):
     return gap_len + 2 + gap_len % 3
@@ -17,7 +11,7 @@ def make_cost_array(seq1, seq2):
     len1 = len(seq1) + 1
     len2 = len(seq2) + 1
 
-    # Each point of matrix is match cost, delete cost, insert cost, delete gap, insert gap
+    # Each point of matrix is match cost, delete cost, insert cost, delete gap length, insert gap length
     cost_array = np.zeros((len1, len2, 5))
 
     cost_array[:, 0] = [[np.inf, init_cost(i), np.inf, i, 0] for i in range(len1)]
@@ -41,10 +35,12 @@ def make_cost_array(seq1, seq2):
 
     return cost_array[:, :, 0:3]
 
+# encodes optimal path from given starting point based on lowest total cost at a given point
 def traceback(cost_array, r, c):
     if r == 0 or c == 0:
         return ""
     else:
+        # add branching?
         next_step = np.where(cost_array[r, c] == min(cost_array[r, c]))[0]
         if next_step == 0:
             return traceback(cost_array, r - 1, c - 1) + 'm'
@@ -54,6 +50,7 @@ def traceback(cost_array, r, c):
             return traceback(cost_array, r, c - 1) + 'i'
 
 if __name__ == "__main__":
+    #simple test case, test more later
     test = make_cost_array("aggat", "tgcgat")
     for r in range(test.shape[0]):
         for i in range(3):
