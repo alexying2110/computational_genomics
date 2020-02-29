@@ -1,0 +1,22 @@
+---
+title: CBMF Homework
+author: [your name here]
+output: pdf_document
+---
+
+#Problem 1
+here is my write up
+
+\[
+latex equation here
+\]
+
+you can also do inline equations $x + y + z$
+
+you can list liek this
+
+a. hello
+
+b. hello
+
+c. hello
